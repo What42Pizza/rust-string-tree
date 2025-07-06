@@ -157,4 +157,12 @@ impl<'a, T> StringTreeNode<'a, T> {
 		})
 	}
 	
+	/// Effectively turns this (view of a) node into a mutable (view of a) node
+	pub fn to_mut(&self, tree: &'a mut StringTree<T>) -> StringTreeNodeMut<'a, T> {
+		StringTreeNodeMut {
+			ref_tree: tree,
+			index: self.index,
+		}
+	}
+	
 }

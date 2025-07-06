@@ -37,7 +37,7 @@ impl<T> StringTree<T> {
 		}
 	}
 	/// Creates a new StringTree with a given list of key/value pairs
-	pub fn from<S: ToString, I: Iterator<Item = (S, T)>>(source: I) -> Self {
+	pub fn from<S: ToString, I: IntoIterator<Item = (S, T)>>(source: I) -> Self {
 		let mut output = Self {
 			node_pointers: vec!([0; 256]),
 			node_values: vec!(None),

@@ -1,0 +1,10 @@
+rework internals to allow for removals
+fix StringTreeNodeMut::set_value_at() and make StringTree::insert() use that
+implement:
+	tree.contains()
+	tree.values()
+	tree.remove()
+	tree.len()
+	tree.is_empty()
+	tree.clear()
+add some sort of self-trimming? (probably needs to keep track of inserted items, removed items, etc)

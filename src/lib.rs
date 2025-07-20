@@ -1,14 +1,15 @@
 #![feature(coroutines, coroutine_trait)]
+#![feature(portable_simd)]
 
 
 
 /// The main type
 pub mod string_tree;
 pub use string_tree::*;
-/// A view of a node, allows for viewing, traversal, etc
+/// A reference to a node within a StringTree, allows for viewing, traversal, etc
 pub mod string_tree_node;
 pub use string_tree_node::*;
-/// A mutable view of a node, allows for viewing, traversal, editing, etc
+/// A mutable reference to a node within a StringTree, allows for viewing, traversal, editing, etc
 pub mod string_tree_node_mut;
 pub use string_tree_node_mut::*;
 #[cfg(test)]
@@ -33,13 +34,4 @@ where
 			CoroutineState::Complete(()) => None,
 		}
 	}
-}
-
-
-
-#[test]
-fn test() {
-	let mut tree = StringTree::from([("", 0)].into_iter());
-	let mut node = tree.root_node_mut();
-	let mut _node_2 = node.step("");
 }

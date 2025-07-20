@@ -1,4 +1,5 @@
 use crate::*;
+use std::mem;
 
 
 
@@ -82,32 +83,82 @@ impl<'a, T> StringTreeNodeMut<'a, T> {
 	/// Steps further into the tree, sets the value at that node, and returns the previous value if it exists
 	pub fn set(&mut self, key: impl AsRef<str>, value: T) -> Option<T> {
 		let key = key.as_ref();
-		if let Some(index) = self.get_index_of_key(key.as_bytes()) {
-			let mut output = Some(value);
-			std::mem::swap(&mut self.ref_tree.node_values[index as usize], &mut output);
-			output
-		} else {
-			// self.ref_tree.insert(key, value);
-			todo!();
-			None
+		let key_bytes = key.as_bytes();
+		let mut curr_node = 0;
+		for i in 0..key_bytes.len() {
+			let key_byte = key_bytes[i] as usize;
+			let next_node = self.ref_tree.node_pointers[curr_node as usize][key_byte] as usize;
+			if next_node > 0 {
+				curr_node = next_node;
+				continue;
+			} else {
+				self.ref_tree.node_fill_counts[curr_node] += 1;
+				for i in i .. key_bytes.len() - 1 {
+					let key_byte = key_bytes[i] as usize;
+					let next_node = self.ref_tree.node_pointers.len() as u32;
+					self.ref_tree.node_pointers[curr_node][key_byte] = next_node;
+					self.ref_tree.node_fill_counts.push(1);
+					self.ref_tree.node_pointers.push([0; 256]);
+					self.ref_tree.node_parents.push((curr_node as u32, key_byte as u8));
+					self.ref_tree.node_values.push(None);
+					curr_node = next_node as usize;
+				}
+				let key_byte = key_bytes[key_bytes.len() - 1] as usize;
+				let next_node = self.ref_tree.node_pointers.len() as u32;
+				self.ref_tree.node_pointers[curr_node][key_byte] = next_node;
+				self.ref_tree.node_pointers.push([0; 256]);
+				self.ref_tree.node_fill_counts.push(0);
+				self.ref_tree.node_parents.push((curr_node as u32, key_byte as u8));
+				self.ref_tree.node_values.push(Some(value));
+				return None;
+			}
 		}
+		let mut output = Some(value);
+		mem::swap(&mut self.ref_tree.node_values[curr_node as usize], &mut output);
+		output
 	}
 	
 	/// Steps further into the tree, removes the value at that node, and returns the previous value if it exists
+	/// 
+	/// This also removes any unneeded nodes to ensure lowest ram usage
 	pub fn remove(&mut self, key: impl AsRef<str>) -> Option<T> {
 		let key = key.as_ref();
-		if let Some(index) = self.get_index_of_key(key.as_bytes()) {
-			let mut output = Some(value);
-			std::mem::swap(&mut self.ref_tree.node_values[index as usize], &mut output);
-			output
-		} else {
-			// self.ref_tree.insert(key, value);
-			todo!();
-			None
+		let key_bytes = key.as_bytes();
+		let Some(index) = self.get_index_of_key(key_bytes) else {return None;};
+		let mut output = None;
+		mem::swap(&mut self.ref_tree.node_values[index as usize], &mut output);
+		if self.ref_tree.node_fill_counts[index as usize] > 0 {return output;}
+		let mut end_node = index as usize;
+		let mut byte_to_next = 0;
+		loop {
+			// only update the node's data if the node should be kept
+			if self.ref_tree.node_fill_counts[end_node] > 1 || self.ref_tree.node_values[end_node].is_some() || end_node == 0 {
+				// note: this cannot be run in the first iteration because of the >0 check above
+				self.ref_tree.node_fill_counts[end_node] -= 1;
+				self.ref_tree.node_pointers[end_node][byte_to_next as usize] = 0;
+				break;
+			}
+			if end_node == 0 {break;}
+			self.ref_tree.node_pointers.swap_remove(end_node);
+			self.ref_tree.node_fill_counts.swap_remove(end_node);
+			let parent_data = self.ref_tree.node_parents.swap_remove(end_node);
+			self.ref_tree.node_values.swap_remove(end_node);
+			if end_node != self.ref_tree.node_pointers.len() { // if a swap did occur, the tree needs to be updated
+				let (swapped_parent, index_within_swapped_parent) = self.ref_tree.node_parents[end_node];
+				self.ref_tree.node_pointers[swapped_parent as usize][index_within_swapped_parent as usize] = end_node as u32;
+				for child_index in self.ref_tree.node_pointers[end_node] {
+					if child_index == 0 {continue;}
+					//assert_ne!(child_index, end_node as u32);
+					self.ref_tree.node_parents[child_index as usize].0 = end_node as u32;
+				}
+			}
+			//assert!((parent_data.0 as usize) < self.ref_tree.node_pointers.len());
+			(end_node, byte_to_next) = (parent_data.0 as usize, parent_data.1);
 		}
+		output
 	}
 	
-	/// Steps further into the tree and returns a new node (or None)
+	/// Steps further into the tree and returns a new mutable node reference (or None)
 	pub fn step(&mut self, key: impl AsRef<str>) -> Option<StringTreeNodeMut<'a, T>> {
 		let key = key.as_ref().as_bytes();
 		let index = self.get_index_of_key(key)?;
@@ -117,7 +168,7 @@ impl<'a, T> StringTreeNodeMut<'a, T> {
 			index,
 		})
 	}
-	/// Steps further into the tree and returns a new node (or an error)
+	/// Steps further into the tree and returns a new mutable node reference (or an error)
 	/// 
 	/// The error value is the path of the current node
 	pub fn try_step(&mut self, key: impl AsRef<str>) -> Result<StringTreeNodeMut<'a, T>, String> {

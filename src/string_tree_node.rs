@@ -25,7 +25,7 @@ impl<'a, T> StringTreeNode<'a, T> {
 		self.ref_tree.node_values[index as usize].as_ref().ok_or_else(|| self.path() + key)
 	}
 	
-	/// Steps further into the tree and returns a new node (or None)
+	/// Steps further into the tree and returns a new node reference (or None)
 	pub fn step(&self, key: impl AsRef<str>) -> Option<StringTreeNode<'a, T>> {
 		let key = key.as_ref().as_bytes();
 		let index = self.get_index_of_key(key)?;
@@ -34,7 +34,7 @@ impl<'a, T> StringTreeNode<'a, T> {
 			index,
 		})
 	}
-	/// Steps further into the tree and returns a new node (or an error)
+	/// Steps further into the tree and returns a new node reference (or an error)
 	/// 
 	/// The error value is the path of the current node
 	pub fn try_step(&self, key: impl AsRef<str>) -> Result<StringTreeNode<'a, T>, String> {
